@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>St. Landry IQ</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,300;0,400;0,600;0,700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#07080A;--dark:#0D0F12;--surface:#13161A;--card:#191C22;--lift:#1F232A;
+  --border:#252930;--edge:#2E333C;--gold:#C9973A;--gold2:#E8B85A;--green:#3DBE72;
+  --red:#E05252;--blue:#4A9EDB;--amber:#E8943A;--white:#EEF0F3;--muted:#5A6070;--subtle:#3A3F4A;
+}
+body{background:var(--black);color:var(--white);font-family:'Barlow',sans-serif;font-weight:300;min-height:100vh;padding-bottom:4rem}
+
+/* HEADER */
+.header{background:linear-gradient(180deg,#0D1017 0%,var(--black) 100%);border-bottom:1px solid var(--border);padding:1.4rem 1.8rem 1.1rem}
+.header-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.brand-name{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:0.08em;line-height:1}
+.brand-name span{color:var(--gold)}
+.brand-sub{font-size:0.58rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);margin-top:0.25rem}
+.live-badge{display:flex;align-items:center;gap:0.5rem;background:rgba(61,190,114,0.1);border:1px solid rgba(61,190,114,0.3);padding:0.35rem 0.8rem;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--green);height:fit-content}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.hstats{display:flex;gap:1.8rem;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);flex-wrap:wrap}
+.hstat{display:flex;flex-direction:column;gap:0.15rem}
+.hstat-val{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--gold2);line-height:1}
+.hstat-label{font-size:0.56rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted)}
+
+/* NAV TABS */
+.nav-tabs{background:var(--dark);border-bottom:1px solid var(--border);display:flex}
+.nav-tab{font-family:'Bebas Neue',sans-serif;font-size:0.95rem;letter-spacing:0.12em;padding:0.9rem 1.8rem;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none}
+.nav-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.nav-tab:hover:not(.active){color:var(--white)}
+
+/* MAIN */
+.main{max-width:960px;margin:0 auto;padding:1.8rem 1.5rem;display:flex;flex-direction:column;gap:1.4rem}
+.page{display:none}.page.active{display:flex;flex-direction:column;gap:1.4rem}
+
+/* SECTION LABEL */
+.slabel{font-size:0.58rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold);margin-bottom:0.75rem;display:flex;align-items:center;gap:0.6rem}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);padding:1.4rem}
+
+/* FORM */
+.fg{display:flex;flex-direction:column;gap:0.35rem}
+label{font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted)}
+input,select{background:var(--surface);border:1px solid var(--edge);color:var(--white);font-family:'Barlow',sans-serif;font-weight:300;font-size:0.88rem;padding:0.6rem 0.8rem;outline:none;transition:border-color 0.2s;width:100%}
+input:focus,select:focus{border-color:var(--gold)}
+select option{background:var(--surface)}
+.row{display:flex;gap:0.8rem;flex-wrap:wrap}
+.row .fg{flex:1;min-width:160px}
+
+/* BUTTONS */
+.btn{font-family:'Bebas Neue',sans-serif;letter-spacing:0.15em;border:none;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:0.5rem;white-space:nowrap}
+.btn-primary{background:var(--gold);color:var(--black);font-size:1rem;padding:0.8rem 1.8rem}
+.btn-primary:hover:not(:disabled){background:var(--gold2)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--edge);color:var(--muted);font-size:0.68rem;padding:0.45rem 0.9rem}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+.qbtns{display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:0.8rem}
+.tbl th{font-size:0.56rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0.55rem 0.75rem;border-bottom:1px solid var(--border);font-weight:400}
+.tbl td{padding:0.65rem 0.75rem;border-bottom:1px solid var(--border);color:#C8CDD6;vertical-align:top}
+.tbl tr:hover td{background:var(--lift);cursor:pointer}
+.tbl tr.selected td:first-child{border-left:3px solid var(--gold)}
+.tbl tr.selected td{background:rgba(201,151,58,0.07)}
+.pnum{font-family:'Bebas Neue',sans-serif;font-size:0.9rem;letter-spacing:0.04em;color:var(--gold2)}
+.acbadge{font-size:0.7rem;font-weight:600;color:var(--green)}
+.ovfx{overflow-x:auto}
+
+/* DETAIL */
+.dpanel{display:none;flex-direction:column;gap:1.1rem}
+.dpanel.visible{display:flex}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:0.9rem}
+@media(max-width:560px){.dgrid{grid-template-columns:1fr}}
+.df{display:flex;flex-direction:column;gap:0.2rem}
+.df-label{font-size:0.56rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted)}
+.df-val{font-size:0.86rem;color:var(--white)}
+
+/* SCORE */
+.score-row{display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap}
+.score-big{font-family:'Bebas Neue',sans-serif;font-size:3.2rem;line-height:1}
+.score-denom{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--muted)}
+.score-grade{font-family:'Bebas Neue',sans-serif;font-size:0.95rem;letter-spacing:0.1em;padding:0.28rem 0.9rem;border:2px solid}
+.flags-row{display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.7rem}
+.ftag{font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;padding:0.2rem 0.5rem;border:1px solid;border-radius:2px}
+.ftag.hot{color:var(--red);border-color:rgba(224,82,82,0.4);background:rgba(224,82,82,0.08)}
+.ftag.warm{color:var(--amber);border-color:rgba(232,148,58,0.4);background:rgba(232,148,58,0.08)}
+.ftag.good{color:var(--green);border-color:rgba(61,190,114,0.4);background:rgba(61,190,114,0.08)}
+.ftag.blue{color:var(--blue);border-color:rgba(74,158,219,0.4);background:rgba(74,158,219,0.08)}
+
+/* RESULT TABS */
+.rtabs{display:flex;border-bottom:1px solid var(--border)}
+.rtab{font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;padding:0.65rem 1.1rem;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none;font-family:'Barlow',sans-serif}
+.rtab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.rtab:hover:not(.active){color:var(--white)}
+.rpane{display:none;padding-top:1.1rem}.rpane.active{display:block}
+
+/* OUTPUT */
+.ai-out{background:var(--surface);border:1px solid var(--edge);border-left:3px solid var(--gold);padding:1.1rem;font-size:0.86rem;line-height:1.7;color:#C8CDD6;white-space:pre-wrap;min-height:80px}
+.letter-out{background:var(--surface);border:1px solid var(--edge);padding:1.4rem;font-size:0.86rem;line-height:1.8;color:#C8CDD6;white-space:pre-wrap;font-family:Georgia,serif;min-height:100px}
+.copy-row{display:flex;justify-content:flex-end;margin-top:0.7rem}
+
+/* EMPTY */
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--muted);font-size:0.82rem}
+.empty .big{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--subtle);letter-spacing:0.1em;margin-bottom:0.4rem}
+
+/* PARCEL LOOKUP */
+.lookup-result{display:none;flex-direction:column;gap:1.1rem}
+.lookup-result.visible{display:flex}
+.invest-score-banner{padding:1.1rem 1.4rem;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;border:1px solid}
+
+/* SPINNER */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:15px;height:15px;border:2px solid rgba(201,151,58,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:fadeIn 0.3s ease forwards}
+hr{border:none;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="brand-name">St. Landry <span>IQ</span></div>
+      <div class="brand-sub">Investment Intelligence · St. Landry Parish, Louisiana</div>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div>Live Parish Data</div>
+  </div>
+  <div class="hstats">
+    <div class="hstat"><div class="hstat-val" id="statTotal">—</div><div class="hstat-label">Adjudicated Parcels</div></div>
+    <div class="hstat"><div class="hstat-val" id="statResults">0</div><div class="hstat-label">Search Results</div></div>
+    <div class="hstat"><div class="hstat-val" id="statScored">0</div><div class="hstat-label">Deals Scored</div></div>
+    <div class="hstat"><div class="hstat-val" id="statLetters">0</div><div class="hstat-label">Letters Generated</div></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="showPage('scanner',this)">Deal Scanner</button>
+  <button class="nav-tab" onclick="showPage('lookup',this)">Parcel Lookup</button>
+  <button class="nav-tab" onclick="showPage('settings',this)">Settings</button>
+</div>
+
+<div class="main">
+
+  <!-- ══ PAGE: DEAL SCANNER ══ -->
+  <div class="page active" id="page-scanner">
+
+    <div class="card">
+      <div class="slabel">Search Adjudicated Properties</div>
+      <div class="row">
+        <div class="fg">
+          <label>Search By</label>
+          <select id="searchField">
+            <option value="ParcelNumb">Parcel Number</option>
+            <option value="Owner_Name">Owner Name</option>
+            <option value="Street_Nam">Street Name</option>
+            <option value="BUS_NAME">Business Name</option>
+          </select>
+        </div>
+        <div class="fg" style="flex:2">
+          <label>Search Term</label>
+          <input type="text" id="searchTerm" placeholder="Enter parcel #, name, or street..." onkeydown="if(event.key==='Enter')searchParcels()"/>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary" id="searchBtn" onclick="searchParcels()"><span id="searchBtnText">Search</span></button>
+        </div>
+      </div>
+      <div class="qbtns">
+        <button class="btn btn-ghost" onclick="loadFilter('1=1',75)">Browse All</button>
+        <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 20',75)">20+ Acres</button>
+        <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 50',75)">50+ Acres</button>
+        <button class="btn btn-ghost" onclick="loadHeirs()">Heirs / Estates</button>
+        <button class="btn btn-ghost" onclick="loadOutOfState()">Out-of-State</button>
+      </div>
+    </div>
+
+    <div class="card" id="resultsCard" style="display:none">
+      <div class="slabel">Results <span id="resultCount" style="color:var(--muted);font-size:0.85em"></span></div>
+      <div class="ovfx">
+        <table class="tbl" id="resultsTable">
+          <thead><tr><th>Parcel #</th><th>Owner</th><th>Property Address</th><th>Acres</th><th>Owner City</th></tr></thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyResults" class="empty" style="display:none"><div class="big">No Results</div>Try a different search or filter</div>
+    </div>
+
+    <div class="card dpanel" id="detailPanel">
+      <div class="slabel">Property Detail</div>
+      <div class="dgrid" id="detailGrid"></div>
+      <hr/>
+      <div>
+        <div class="slabel">Deal Score</div>
+        <div class="score-row">
+          <div style="display:flex;align-items:baseline;gap:0.3rem">
+            <div class="score-big" id="scoreNum">—</div>
+            <div class="score-denom">/100</div>
+          </div>
+          <div class="score-grade" id="scoreGrade">—</div>
+          <button class="btn btn-primary" style="font-size:0.85rem;padding:0.6rem 1.4rem" id="analyzeBtn" onclick="analyzeProperty()"><span id="analyzeBtnText">Run AI Analysis</span></button>
+        </div>
+        <div class="flags-row" id="flagsRow"></div>
+      </div>
+      <hr/>
+      <div class="rtabs">
+        <button class="rtab active" onclick="switchRTab(event,'analysis')">AI Analysis</button>
+        <button class="rtab" onclick="switchRTab(event,'letter')">Outreach Letter</button>
+        <button class="rtab" onclick="switchRTab(event,'checklist')">Next Steps</button>
+      </div>
+      <div class="rpane active" id="pane_analysis"><div class="ai-out" id="analysisOutput">Select a property above then click Run AI Analysis.</div></div>
+      <div class="rpane" id="pane_letter">
+        <div class="letter-out" id="letterOutput">Run AI Analysis first — letter generates automatically.</div>
+        <div class="copy-row"><button class="btn btn-ghost" onclick="copyText('letterOutput')">Copy Letter</button></div>
+      </div>
+      <div class="rpane" id="pane_checklist"><div class="ai-out" id="checklistOutput">Run AI Analysis first — action plan generates automatically.</div></div>
+    </div>
+
+  </div>
+
+  <!-- ══ PAGE: PARCEL LOOKUP ══ -->
+  <div class="page" id="page-lookup">
+
+    <div class="card">
+      <div class="slabel">Look Up Any St. Landry Parcel</div>
+      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem">Find any parcel on the parish map, tap it, copy the parcel number, and paste it here. The tool pulls all available data and scores it as an investment opportunity.</p>
+      <div class="row">
+        <div class="fg" style="flex:2">
+          <label>Parcel Number (10 digits, no dashes)</label>
+          <input type="text" id="lookupParcel" placeholder="e.g. 0601973635" maxlength="10" onkeydown="if(event.key==='Enter')doLookup()"/>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary" id="lookupBtn" onclick="doLookup()"><span id="lookupBtnText">Look Up</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card lookup-result" id="lookupResult">
+      <div class="slabel">Parcel Data</div>
+      <div class="dgrid" id="lookupGrid"></div>
+      <hr/>
+      <div>
+        <div class="slabel">Investment Score</div>
+        <div class="invest-score-banner" id="investBanner">
+          <div style="display:flex;align-items:baseline;gap:0.3rem">
+            <div class="score-big" id="lScoreNum">—</div>
+            <div class="score-denom">/100</div>
+          </div>
+          <div class="score-grade" id="lScoreGrade">—</div>
+          <button class="btn btn-primary" style="font-size:0.85rem;padding:0.6rem 1.4rem" id="lAnalyzeBtn" onclick="analyzeLookup()"><span id="lAnalyzeBtnText">Run AI Analysis</span></button>
+        </div>
+        <div class="flags-row" id="lFlagsRow" style="margin-top:0.7rem"></div>
+      </div>
+      <hr/>
+      <div class="rtabs">
+        <button class="rtab active" onclick="switchLTab(event,'lanalysis')">AI Analysis</button>
+        <button class="rtab" onclick="switchLTab(event,'lletter')">Outreach Letter</button>
+        <button class="rtab" onclick="switchLTab(event,'lchecklist')">Next Steps</button>
+      </div>
+      <div class="rpane active" id="pane_lanalysis"><div class="ai-out" id="lAnalysisOutput">Click Run AI Analysis to score this parcel as an investment.</div></div>
+      <div class="rpane" id="pane_lletter">
+        <div class="letter-out" id="lLetterOutput">Run AI Analysis first — letter generates automatically.</div>
+        <div class="copy-row"><button class="btn btn-ghost" onclick="copyText('lLetterOutput')">Copy Letter</button></div>
+      </div>
+      <div class="rpane" id="pane_lchecklist"><div class="ai-out" id="lChecklistOutput">Run AI Analysis first — action plan generates automatically.</div></div>
+    </div>
+
+  </div>
+
+  <!-- ══ PAGE: SETTINGS ══ -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="slabel">Claude API Key</div>
+      <div class="row">
+        <div class="fg">
+          <label>Anthropic API Key</label>
+          <input type="password" id="apiKey" placeholder="sk-ant-..."/>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-ghost" onclick="saveKey()">Save Key</button>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:0.6rem">Stored in your browser only. Never sent anywhere except Anthropic's API.</div>
+    </div>
+    <div class="card">
+      <div class="slabel">About This Tool</div>
+      <div style="font-size:0.82rem;color:#C8CDD6;line-height:1.7">
+        <p><strong style="color:var(--gold)">Deal Scanner</strong> — Pulls live adjudicated property data directly from St. Landry Parish records. Every property here is already in a motivated seller situation by definition.</p>
+        <br/>
+        <p><strong style="color:var(--gold)">Parcel Lookup</strong> — Look up any parcel in St. Landry Parish by number. Find a parcel on the parish map, note the number, and paste it here for a full investment analysis.</p>
+        <br/>
+        <p><strong style="color:var(--gold)">Scoring</strong> — Deals are scored 0–100 based on motivated seller signals: adjudication status, heirs/estate ownership, out-of-state owners, acreage, and other flags pulled directly from parish data.</p>
+        <br/>
+        <p style="color:var(--muted);font-size:0.75rem">Data source: St. Landry Parish ArcGIS FeatureServer. Updated by the parish.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const ADJ_URL    = 'https://services1.arcgis.com/fe3XWHMASK948q2c/arcgis/rest/services/StlandryEuniceAdjudicated/FeatureServer/0/query';
+const PARCEL_URL = 'https://services1.arcgis.com/fe3XWHMASK948q2c/arcgis/rest/services/StLandryParcels/FeatureServer/0/query';
+const ADJ_FIELDS = 'PARCEL,ParcelNumb,Owner_Name,Owner_Addr,Owner_City,CALC_ACRES,DEED_ACRES,Street_Nam,Address_Nu,BUS_NAME,COMMENT,LOT,BLOCK,TRACK';
+
+let currentAdj    = null;
+let currentLookup = null;
+let scored = 0, letters = 0;
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  const k = localStorage.getItem('anthropic_key');
+  if (k) document.getElementById('apiKey').value = k;
+  loadTotalCount();
+});
+
+function saveKey() {
+  const k = document.getElementById('apiKey').value.trim();
+  if (!k) return;
+  localStorage.setItem('anthropic_key', k);
+  alert('API key saved.');
+}
+function getKey() {
+  return document.getElementById('apiKey').value.trim() || localStorage.getItem('anthropic_key') || '';
+}
+
+async function loadTotalCount() {
+  try {
+    const res = await fetch(`${ADJ_URL}?where=1%3D1&returnCountOnly=true&f=json`);
+    const d   = await res.json();
+    document.getElementById('statTotal').innerText = (d.count || '—').toLocaleString();
+  } catch(e) {}
+}
+
+// ── PAGE NAV ──
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const page = document.getElementById('page-' + name);
+  if (page) page.classList.add('active');
+  if (btn)  btn.classList.add('active');
+}
+
+// ── SCANNER SEARCH ──
+async function searchParcels() {
+  const field = document.getElementById('searchField').value;
+  const term  = document.getElementById('searchTerm').value.trim();
+  if (!term) { alert('Enter a search term.'); return; }
+  setBtn('searchBtn', 'searchBtnText', true);
+  let where = `${field} LIKE '%${term}%'`;
+  if (field === 'ParcelNumb') where = `ParcelNumb LIKE '%${term}%' OR PARCEL LIKE '%${term}%'`;
+  await fetchAndDisplay(where);
+  setBtn('searchBtn', 'searchBtnText', false, 'Search');
+}
+
+async function loadFilter(where, max = 75) {
+  setBtn('searchBtn', 'searchBtnText', true);
+  await fetchAndDisplay(where, max);
+  setBtn('searchBtn', 'searchBtnText', false, 'Search');
+}
+
+async function loadHeirs() {
+  await loadFilter("Owner_Name LIKE '%Heir%' OR Owner_Name LIKE '%Estate%' OR Owner_Name LIKE '%Succession%' OR Owner_Name LIKE '%Et Al%'");
+}
+
+async function loadOutOfState() {
+  await loadFilter("Owner_City NOT LIKE '%Eunice%' AND Owner_City NOT LIKE '%Opelousas%' AND Owner_City NOT LIKE '%Ville Platte%' AND Owner_City NOT LIKE '%Mamou%' AND Owner_City NOT LIKE '%Port Barre%' AND Owner_City NOT LIKE '%Sunset%' AND Owner_City NOT LIKE '%Church Point%' AND Owner_City IS NOT NULL AND Owner_City <> ''");
+}
+
+async function fetchAndDisplay(where, max = 100) {
+  try {
+    const p   = new URLSearchParams({where, outFields: ADJ_FIELDS, returnGeometry: false, resultRecordCount: max, orderByFields: 'CALC_ACRES DESC', f: 'json'});
+    const res = await fetch(`${ADJ_URL}?${p}`);
+    const d   = await res.json();
+    if (d.error) { alert('API Error: ' + d.error.message); return; }
+    displayResults(d.features || []);
+    document.getElementById('statResults').innerText = (d.features || []).length;
+  } catch(e) { alert('Network error: ' + e.message); }
+}
+
+function displayResults(features) {
+  const card  = document.getElementById('resultsCard');
+  const tbody = document.getElementById('resultsBody');
+  const empty = document.getElementById('emptyResults');
+  const tbl   = document.getElementById('resultsTable');
+  card.style.display = 'block';
+  tbody.innerHTML    = '';
+  if (!features.length) {
+    tbl.style.display   = 'none';
+    empty.style.display = 'block';
+    document.getElementById('resultCount').innerText = '(0)';
+    return;
+  }
+  tbl.style.display   = 'table';
+  empty.style.display = 'none';
+  document.getElementById('resultCount').innerText = `(${features.length})`;
+  features.forEach((f, i) => {
+    const a  = f.attributes;
+    const tr = document.createElement('tr');
+    tr.className        = 'fi';
+    tr.style.animationDelay = (i * 0.02) + 's';
+    const acres  = a.CALC_ACRES ? parseFloat(a.CALC_ACRES).toFixed(1) : '—';
+    const parcel = a.ParcelNumb || a.PARCEL || '—';
+    const owner  = a.Owner_Name || a.BUS_NAME || 'Unknown';
+    const street = a.Street_Nam ? ((a.Address_Nu || '') + ' ' + a.Street_Nam).trim() : '—';
+    tr.innerHTML = `<td><span class="pnum">${parcel}</span></td><td>${owner}</td><td>${street}</td><td><span class="acbadge">${acres} ac</span></td><td>${a.Owner_City || '—'}</td>`;
+    tr.onclick   = () => selectAdj(a, tr);
+    tbody.appendChild(tr);
+  });
+}
+
+function selectAdj(attrs, row) {
+  document.querySelectorAll('#resultsBody tr').forEach(r => r.classList.remove('selected'));
+  row.classList.add('selected');
+  currentAdj = attrs;
+  resetOutputs('analysisOutput', 'letterOutput', 'checklistOutput');
+  buildDetailGrid('detailGrid', adjFields(attrs));
+  const {score, flags} = adjScore(attrs);
+  renderScore('scoreNum', 'scoreGrade', 'flagsRow', score, flags);
+  const panel = document.getElementById('detailPanel');
+  panel.classList.add('visible', 'fi');
+  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+  scored++;
+  document.getElementById('statScored').innerText = scored;
+}
+
+function adjFields(a) {
+  return [
+    {label: 'Parcel Number',    val: a.ParcelNumb || a.PARCEL || '—'},
+    {label: 'Owner Name',       val: a.Owner_Name || a.BUS_NAME || '—'},
+    {label: 'Owner Address',    val: a.Owner_Addr || '—'},
+    {label: 'Owner City',       val: a.Owner_City || '—'},
+    {label: 'Calculated Acres', val: (a.CALC_ACRES ? parseFloat(a.CALC_ACRES).toFixed(2) : '-') + ' ac'},
+    {label: 'Deed Acres',       val: (a.DEED_ACRES ? parseFloat(a.DEED_ACRES).toFixed(2) : '-') + ' ac'},
+    {label: 'Property Address', val: ((a.Address_Nu || '') + ' ' + (a.Street_Nam || '')).trim() || '—'},
+    {label: 'Lot / Block / Track', val: [a.LOT, a.BLOCK, a.TRACK].filter(Boolean).join(' / ') || '—'},
+    {label: 'Parish Comments',  val: a.COMMENT || '—'},
+    {label: 'Status',           val: 'ADJUDICATED'},
+  ];
+}
+
+// ── SCORING: SCANNER ──
+function adjScore(a) {
+  const flags = []; let score = 0;
+  flags.push({label: 'Adjudicated', type: 'hot', pts: 30}); score += 30;
+  const name = (a.Owner_Name || '').toLowerCase();
+  if (name.includes('heir') || name.includes('estate') || name.includes('succession') || name.includes('et al') || name.includes('et ux')) {
+    flags.push({label: 'Heirs / Estate', type: 'hot', pts: 20}); score += 20;
+  }
+  const city = (a.Owner_City || '').toLowerCase();
+  const la = ['eunice','opelousas','ville platte','mamou','washington','port barre','krotz','lebeau','grand coteau','sunset','church point','lawtell','melville'];
+  if (city && !la.some(k => city.includes(k))) { flags.push({label: 'Out-of-State Owner', type: 'warm', pts: 12}); score += 12; }
+  if (!a.Street_Nam || !a.Street_Nam.trim())   { flags.push({label: 'No Street Address',  type: 'warm', pts: 8});  score += 8;  }
+  const acres = parseFloat(a.CALC_ACRES) || 0;
+  if (acres >= 50)      { flags.push({label: '50+ Acres',  type: 'good', pts: 15}); score += 15; }
+  else if (acres >= 20) { flags.push({label: '20+ Acres',  type: 'good', pts: 8});  score += 8;  }
+  const calc = parseFloat(a.CALC_ACRES) || 0, deed = parseFloat(a.DEED_ACRES) || 0;
+  if (calc > 0 && deed > 0 && Math.abs(calc - deed) / Math.max(calc, deed) > 0.1) {
+    flags.push({label: 'Acreage Discrepancy', type: 'warm', pts: 5}); score += 5;
+  }
+  if (a.COMMENT && a.COMMENT.trim().length > 3) { flags.push({label: 'Has Review Notes', type: 'warm', pts: 5}); score += 5; }
+  return {score: Math.min(score, 100), flags};
+}
+
+// ── PARCEL LOOKUP ──
+async function doLookup() {
+  const parcel = document.getElementById('lookupParcel').value.trim();
+  if (!parcel) { alert('Enter a parcel number.'); return; }
+  const key = getKey();
+  if (!key) { alert('Add your API key in Settings first.'); return; }
+  setBtn('lookupBtn', 'lookupBtnText', true);
+
+  let info = null;
+  try {
+    const prompt = `Fetch the property information for parcel number ${parcel} from St. Landry Parish Louisiana.
+
+Use the web_search tool or fetch these two URLs and extract the data:
+1. https://stlandrymapping.azurewebsites.net/Search/GetInfo?parcelNumber=${parcel}&inAISMode=false
+2. https://stlandrymapping.azurewebsites.net/Search/GetParcelTaxes?parcelid=${parcel}
+
+Extract and return ONLY a valid JSON object with these exact keys (use null for missing values):
+{
+  "owner": "",
+  "physAddr": "",
+  "mailingAddr": "",
+  "subdivision": "",
+  "assessedVal": "",
+  "saleDate": "",
+  "salesPrice": "",
+  "legal": "",
+  "notes": "",
+  "parishTax": 0,
+  "cityTax": 0,
+  "homestead": 0
+}
+
+Return ONLY the JSON object, nothing else.`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{"type": "web_search_20250305", "name": "web_search"}],
+        messages: [{role: 'user', content: prompt}]
+      })
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const textBlock = data.content?.find(b => b.type === 'text');
+    if (textBlock) {
+      const clean  = textBlock.text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      info         = parsed;
+      info.parcel  = parcel;
+    }
+  } catch(e) {
+    setBtn('lookupBtn', 'lookupBtnText', false, 'Look Up');
+    alert('Error fetching parcel data: ' + e.message);
+    return;
+  }
+
+  if (!info || !info.owner) {
+    setBtn('lookupBtn', 'lookupBtnText', false, 'Look Up');
+    alert('Could not retrieve parcel data. Check the number and try again.');
+    return;
+  }
+
+  const adjData    = await fetchParcel(ADJ_URL, `PARCEL LIKE '${parcel}%' OR ParcelNumb LIKE '${parcel}%'`);
+  info._isAdj      = !!(adjData && adjData.length);
+
+  setBtn('lookupBtn', 'lookupBtnText', false, 'Look Up');
+  currentLookup = info;
+
+  resetOutputs('lAnalysisOutput', 'lLetterOutput', 'lChecklistOutput');
+  buildDetailGrid('lookupGrid', lookupFields(info));
+  const {score, flags} = lookupScore(info);
+  renderScore('lScoreNum', 'lScoreGrade', 'lFlagsRow', score, flags);
+
+  const banner = document.getElementById('investBanner');
+  if (score >= 70)      { banner.style.borderColor = 'var(--red)';    banner.style.background = 'rgba(224,82,82,0.05)'; }
+  else if (score >= 50) { banner.style.borderColor = 'var(--amber)';  banner.style.background = 'rgba(232,148,58,0.05)'; }
+  else                  { banner.style.borderColor = 'var(--border)'; banner.style.background = 'transparent'; }
+
+  const result = document.getElementById('lookupResult');
+  result.classList.add('visible', 'fi');
+  result.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+async function fetchParcel(url, where) {
+  try {
+    const p   = new URLSearchParams({where, outFields: '*', returnGeometry: false, resultRecordCount: 1, f: 'json'});
+    const res = await fetch(`${url}?${p}`);
+    const d   = await res.json();
+    return d.features || [];
+  } catch(e) { return []; }
+}
+
+function lookupFields(a) {
+  const fmt    = (v) => v || '—';
+  const taxLine = a.parishTax != null
+    ? `$${parseFloat(a.parishTax).toFixed(2)} parish / $${parseFloat(a.cityTax || 0).toFixed(2)} city`
+    : '—';
+  return [
+    {label: 'Parcel Number',    val: fmt(a.parcel)},
+    {label: 'Owner',            val: fmt(a.owner)},
+    {label: 'Property Address', val: fmt(a.physAddr)},
+    {label: 'Mailing Address',  val: fmt(a.mailingAddr)},
+    {label: 'Subdivision',      val: fmt(a.subdivision)},
+    {label: 'Assessed Value',   val: a.assessedVal ? '$' + a.assessedVal : '—'},
+    {label: 'Annual Taxes',     val: taxLine},
+    {label: 'Last Sale Date',   val: fmt(a.saleDate)},
+    {label: 'Last Sale Price',  val: a.salesPrice ? '$' + a.salesPrice : '—'},
+    {label: 'Legal',            val: fmt(a.legal)},
+    {label: 'Status',           val: a._isAdj ? '⚠ ADJUDICATED' : 'Active'},
+    {label: 'Notes',            val: fmt(a.notes)},
+  ];
+}
+
+// ── SCORING: LOOKUP ──
+function lookupScore(a) {
+  const flags = []; let score = 0;
+  if (a._isAdj) { flags.push({label: 'Adjudicated', type: 'hot', pts: 35}); score += 35; }
+  const name = (a.owner || '').toLowerCase();
+  if (name.includes('heir') || name.includes('estate') || name.includes('succession') || name.includes('et al')) {
+    flags.push({label: 'Heirs / Estate', type: 'hot', pts: 20}); score += 20;
+  }
+  const mail     = (a.mailingAddr || '').toLowerCase();
+  const laKw     = ['lafayette','opelousas','eunice','baton rouge','new orleans','shreveport','lake charles','ville platte','mamou','port barre','sunset','church point'];
+  const inLA     = laKw.some(k => mail.includes(k)) || mail.includes(' la ') || mail.includes(' la\n');
+  if (mail && !inLA) { flags.push({label: 'Out-of-State Owner', type: 'warm', pts: 12}); score += 12; }
+  if (a.parishTax != null && a.assessedVal) {
+    const assessed = parseFloat((a.assessedVal + '').replace(/,/g, '')) || 0;
+    const tax      = parseFloat(a.parishTax) || 0;
+    if (assessed > 0 && tax / assessed > 0.08) { flags.push({label: 'High Tax Burden', type: 'warm', pts: 8}); score += 8; }
+  }
+  if (a.homestead === 0 || a.homestead === '0') { flags.push({label: 'No Homestead Exemption', type: 'warm', pts: 8}); score += 8; }
+  const legalAcres = parseFloat((a.legal || '').match(/(\d+\.?\d*)\s*AC/i)?.[1] || 0);
+  if (legalAcres >= 50)      { flags.push({label: '50+ Acres', type: 'good', pts: 15}); score += 15; }
+  else if (legalAcres >= 20) { flags.push({label: '20+ Acres', type: 'good', pts: 8});  score += 8;  }
+  if (a.saleDate) {
+    const yr = parseInt(a.saleDate.split('/').pop());
+    if (yr && yr < 2010) { flags.push({label: 'No Recent Sale (' + yr + ')', type: 'warm', pts: 8}); score += 8; }
+  } else {
+    flags.push({label: 'No Sale Date on Record', type: 'warm', pts: 5}); score += 5;
+  }
+  if (!a._isAdj && score < 15) { flags.push({label: 'Low Motivation Signals', type: 'blue', pts: 0}); }
+  return {score: Math.min(score, 100), flags};
+}
+
+// ── AI: SCANNER ──
+async function analyzeProperty() {
+  const key = getKey();
+  if (!key)        { alert('Add API key in Settings first.'); return; }
+  if (!currentAdj) { alert('Select a property first.');       return; }
+  setBtn('analyzeBtn', 'analyzeBtnText', true);
+  const a            = currentAdj;
+  const {score, flags} = adjScore(a);
+  const prompt       = buildAdjPrompt(a, score, flags);
+  try {
+    const text = await callClaude(key, prompt, 1000);
+    document.getElementById('analysisOutput').className  = 'ai-out fi';
+    document.getElementById('analysisOutput').innerText  = text;
+    genLetter(key, a.Owner_Name || a.BUS_NAME || 'Property Owner', a.Owner_City, ((a.Address_Nu || '') + ' ' + (a.Street_Nam || '')).trim(), a.CALC_ACRES, true, 'letterOutput');
+    genChecklist(key, a.ParcelNumb || a.PARCEL, a.Owner_Name, a.Owner_City, a.CALC_ACRES, score, flags, 'checklistOutput');
+  } catch(e) { document.getElementById('analysisOutput').innerText = 'Error: ' + e.message; }
+  setBtn('analyzeBtn', 'analyzeBtnText', false, 'Run AI Analysis');
+}
+
+// ── AI: LOOKUP ──
+async function analyzeLookup() {
+  const key = getKey();
+  if (!key)           { alert('Add API key in Settings first.'); return; }
+  if (!currentLookup) { alert('Look up a parcel first.');        return; }
+  setBtn('lAnalyzeBtn', 'lAnalyzeBtnText', true);
+  const a              = currentLookup;
+  const {score, flags} = lookupScore(a);
+  const prompt         = buildLookupPrompt(a, score, flags);
+  try {
+    const text = await callClaude(key, prompt, 1000);
+    document.getElementById('lAnalysisOutput').className = 'ai-out fi';
+    document.getElementById('lAnalysisOutput').innerText = text;
+    genLetter(key, a.owner, a.mailingAddr, a.physAddr, a.legal, a._isAdj, 'lLetterOutput');
+    genChecklist(key, a.parcel, a.owner, a.mailingAddr, a.legal, score, flags, 'lChecklistOutput');
+  } catch(e) { document.getElementById('lAnalysisOutput').innerText = 'Error: ' + e.message; }
+  setBtn('lAnalyzeBtn', 'lAnalyzeBtnText', false, 'Run AI Analysis');
+}
+
+function buildAdjPrompt(a, score, flags) {
+  return `You are a Louisiana land investment expert specializing in adjudicated and distressed properties in St. Landry Parish.
+
+Analyze this property from live St. Landry Parish adjudicated records:
+PARCEL: ${a.ParcelNumb || a.PARCEL || 'Unknown'}
+OWNER: ${a.Owner_Name || a.BUS_NAME || 'Unknown'}
+OWNER LOCATION: ${a.Owner_Addr || ''}, ${a.Owner_City || 'Unknown'}
+PROPERTY: ${((a.Address_Nu || '') + ' ' + (a.Street_Nam || '')).trim() || 'No street address'}
+ACRES: ${a.CALC_ACRES || 'Unknown'} calc / ${a.DEED_ACRES || 'Unknown'} deed
+LOT/BLOCK/TRACK: ${[a.LOT, a.BLOCK, a.TRACK].filter(Boolean).join(' / ') || 'N/A'}
+COMMENTS: ${a.COMMENT || 'None'}
+FLAGS: ${flags.map(f => f.label).join(', ')}
+SCORE: ${score}/100
+
+4 paragraphs: (1) owner situation and approach, (2) why adjudicated and acquisition path, (3) offer strategy and who to call first, (4) biggest risk. Seasoned Cajun country investor voice. No fluff.`;
+}
+
+function buildLookupPrompt(a, score, flags) {
+  return `You are a Louisiana land investment expert for St. Landry Parish.
+
+Analyze this parcel as an investment opportunity (data pulled live from parish records):
+PARCEL: ${a.parcel || 'Unknown'}
+OWNER: ${a.owner || 'Unknown'}
+MAILING ADDRESS: ${a.mailingAddr || 'Unknown'}
+PROPERTY ADDRESS: ${a.physAddr || 'No address on file'}
+LEGAL: ${a.legal || 'Unknown'}
+ASSESSED VALUE: $${a.assessedVal || 'Unknown'}
+LAST SALE: ${a.saleDate || 'Unknown'} for $${a.salesPrice || 'Unknown'}
+ANNUAL TAXES: Parish $${a.parishTax || 0} / City $${a.cityTax || 0}
+HOMESTEAD: ${a.homestead ? 'Yes' : 'No'}
+STATUS: ${a._isAdj ? 'ADJUDICATED' : 'Active (non-adjudicated)'}
+FLAGS: ${flags.map(f => f.label).join(', ') || 'None detected'}
+SCORE: ${score}/100
+
+4 paragraphs: (1) is this worth pursuing and why, (2) owner situation and how to approach, (3) acquisition strategy and realistic offer range, (4) biggest risk or reason to pass. Direct. Cajun country investor voice.`;
+}
+
+async function genLetter(key, ownerName, ownerCity, propAddr, acres, isAdj, outputId) {
+  const el       = document.getElementById(outputId);
+  el.style.color = 'var(--muted)';
+  el.innerText   = 'Writing outreach letter...';
+  const isHeirs  = (ownerName || '').toLowerCase().includes('heir') || (ownerName || '').toLowerCase().includes('estate') || (ownerName || '').toLowerCase().includes('succession');
+  const prompt   = `Write a short sincere outreach letter from a local Louisiana land buyer.
+
+Owner: ${ownerName || 'Property Owner'}
+Property: ${propAddr || 'St. Landry Parish'}
+Acres: ${acres || 'Unknown'}
+Heirs situation: ${isHeirs}
+Adjudicated: ${isAdj}
+Owner location: ${ownerCity || 'Unknown'}
+
+Under 200 words. Warm local Louisiana tone. Buyer is from Lafayette area. If heirs acknowledge family land sensitively. If adjudicated mention helping resolve title complications. No pressure. [YOUR NAME] and [YOUR PHONE] placeholders. No invented prices. Write only the letter.`;
+  try {
+    const text     = await callClaude(key, prompt, 500);
+    el.innerText   = text;
+    el.style.color = '#C8CDD6';
+    letters++;
+    document.getElementById('statLetters').innerText = letters;
+  } catch(e) { el.innerText = 'Error: ' + e.message; }
+}
+
+async function genChecklist(key, parcel, ownerName, ownerCity, acres, score, flags, outputId) {
+  const el       = document.getElementById(outputId);
+  el.style.color = 'var(--muted)';
+  el.innerText   = 'Building action plan...';
+  const prompt   = `Louisiana land wholesaling expert. Specific next-steps for this St. Landry Parish deal.
+Parcel: ${parcel} | Owner: ${ownerName || 'Unknown'} — ${ownerCity || 'Unknown'} | Acres: ${acres || 'Unknown'} | Score: ${score}/100
+Flags: ${flags.map(f => f.label).join(', ')}
+6-8 numbered steps. Reference St. Landry Clerk of Court and Tax Collector. Skip tracing if needed. Offer % of assessed value. Title attorney guidance. Walk-away criteria. Louisiana specific. No filler.`;
+  try {
+    const text     = await callClaude(key, prompt, 700);
+    el.innerText   = text;
+    el.style.color = '#C8CDD6';
+  } catch(e) { el.innerText = 'Error: ' + e.message; }
+}
+
+async function callClaude(key, prompt, maxTokens) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true'},
+    body: JSON.stringify({model: 'claude-sonnet-4-20250514', max_tokens: maxTokens, messages: [{role: 'user', content: prompt}]})
+  });
+  const d = await res.json();
+  if (d.error) throw new Error(d.error.message);
+  return d.content?.[0]?.text || 'No response.';
+}
+
+// ── HELPERS ──
+function buildDetailGrid(gridId, fields) {
+  const grid  = document.getElementById(gridId);
+  grid.innerHTML = '';
+  fields.forEach(f => {
+    const div       = document.createElement('div');
+    div.className   = 'df';
+    div.innerHTML   = `<div class="df-label">${f.label}</div><div class="df-val">${f.val}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function renderScore(numId, gradeId, flagsId, score, flags) {
+  const n = document.getElementById(numId);
+  const g = document.getElementById(gradeId);
+  n.innerText = score;
+  if (score >= 70)      { g.innerText = 'HOT DEAL'; g.style.color = n.style.color = 'var(--red)';   g.style.borderColor = 'var(--red)'; }
+  else if (score >= 50) { g.innerText = 'PURSUE';   g.style.color = n.style.color = 'var(--amber)'; g.style.borderColor = 'var(--amber)'; }
+  else                  { g.innerText = 'MONITOR';  g.style.color = n.style.color = 'var(--blue)';  g.style.borderColor = 'var(--blue)'; }
+  const fr    = document.getElementById(flagsId);
+  fr.innerHTML = '';
+  flags.forEach(f => {
+    const t       = document.createElement('div');
+    t.className   = `ftag ${f.type}`;
+    t.innerText   = f.label;
+    fr.appendChild(t);
+  });
+}
+
+function resetOutputs(...ids) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.innerText = 'Run AI Analysis to generate this.'; el.style.color = ''; }
+  });
+}
+
+function switchRTab(e, name) {
+  document.querySelectorAll('#detailPanel .rtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#detailPanel .rpane').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('pane_' + name).classList.add('active');
+}
+
+function switchLTab(e, name) {
+  document.querySelectorAll('#lookupResult .rtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#lookupResult .rpane').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('pane_' + name).classList.add('active');
+}
+
+function setBtn(btnId, textId, loading, defaultText = '') {
+  const b   = document.getElementById(btnId);
+  const t   = document.getElementById(textId);
+  b.disabled = loading;
+  t.innerHTML = loading ? '<span class="spin"></span>' : (defaultText || t.innerText);
+}
+
+function copyText(id) {
+  navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => alert('Copied to clipboard.'));
+}
+</script>
+
+</body>
+</html>

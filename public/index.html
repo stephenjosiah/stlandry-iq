@@ -176,6 +176,7 @@ hr{border:none;border-top:1px solid var(--border)}
         </div>
       </div>
       <div class="qbtns">
+        <button class="btn btn-primary" style="font-size:0.78rem;padding:0.55rem 1.2rem" id="oppBtn" onclick="loadOpportunities()"><span id="oppBtnText">&#9889; Hot Opportunities</span></button>
         <button class="btn btn-ghost" onclick="loadFilter('1=1')">Top Deals</button>
         <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 20')">20+ Acres</button>
         <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 50')">50+ Acres</button>
@@ -706,6 +707,20 @@ Flags: ${flags.map(f => f.label).join(', ')}
   } catch(e) { el.innerText = 'Error: ' + e.message; }
 }
 
+// ── HOT OPPORTUNITIES ──
+async function loadOpportunities() {
+  setBtn('oppBtn', 'oppBtnText', true);
+  document.getElementById('oppBtnText').innerHTML = '<span class="spin"></span> Scanning parish...';
+  try {
+    const res  = await fetch('/api/opportunities');
+    const data = await res.json();
+    if (!res.ok) { alert('Error: ' + (data.error || 'Unknown')); return; }
+    displayBrowseResults(data, true);
+    document.getElementById('statResults').innerText = data.length;
+  } catch(e) { alert('Error: ' + e.message); }
+  setBtn('oppBtn', 'oppBtnText', false, '&#9889; Hot Opportunities');
+}
+
 // ── FULL PARISH BROWSE (via server proxy) ──
 async function browseParcels(filter) {
   setBtn('searchBtn', 'searchBtnText', true);
@@ -724,7 +739,7 @@ async function browseParcels(filter) {
   setBtn('searchBtn', 'searchBtnText', false, 'Search');
 }
 
-function displayBrowseResults(parcels) {
+function displayBrowseResults(parcels, showSignals = false) {
   const card  = document.getElementById('resultsCard');
   const tbody = document.getElementById('resultsBody');
   const empty = document.getElementById('emptyResults');
@@ -743,8 +758,15 @@ function displayBrowseResults(parcels) {
     tr.className = 'fi'; tr.style.animationDelay = (i * 0.02) + 's';
     const acres   = p.calcAcres ? parseFloat(p.calcAcres).toFixed(1) : '—';
     const scColor = p._score >= 70 ? 'var(--red)' : p._score >= 50 ? 'var(--amber)' : 'var(--blue)';
-    const adjBadge = p._isAdj ? ' <span style="color:var(--red);font-size:0.6rem">ADJ</span>' : '';
-    tr.innerHTML = `<td><span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:${scColor}">${p._score}</span></td><td><span class="pnum">${p.parcel}</span></td><td>${p.owner || '—'}${adjBadge}</td><td>${p.physAddr || '—'}</td><td><span class="acbadge">${acres} ac</span></td><td>${(p.mailingAddr || '').split('\n')[0] || '—'}</td>`;
+    // Signal badges
+    let badges = '';
+    if (showSignals && p._signals) {
+      badges = p._signals.slice(0, 3).map(s => {
+        const c = s.type === 'hot' ? '#E05252' : s.type === 'good' ? '#3DBE72' : '#E8943A';
+        return `<span style="font-size:0.5rem;letter-spacing:0.08em;text-transform:uppercase;padding:0.1rem 0.3rem;border:1px solid ${c};color:${c};border-radius:2px;margin-left:3px">${s.label}</span>`;
+      }).join('');
+    }
+    tr.innerHTML = `<td><span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:${scColor}">${p._score}</span></td><td><span class="pnum">${p.parcel}</span></td><td>${p.owner || '—'}${badges}</td><td>${p.physAddr || p.calcAcres ? parseFloat(p.calcAcres||0).toFixed(1)+' ac' : '—'}</td><td><span class="acbadge">${acres} ac</span></td><td>${(p.mailingAddr || '').split('\n')[0] || '—'}</td>`;
     tr.onclick = () => selectBrowse(p, tr);
     tbody.appendChild(tr);
   });

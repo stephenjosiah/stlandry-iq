@@ -148,4 +148,137 @@ app.get('/api/browse', async (req, res) => {
   }
 });
 
+// ── Shared hydrator: fetch assessor data for a parcel ID ──
+async function hydrateParcel(id, arcAttrs = {}) {
+  const [infoRes, taxRes] = await Promise.all([
+    fetch(`${ASSESSOR_BASE}/Search/GetInfo?parcelNumber=${id}&inAISMode=false`),
+    fetch(`${ASSESSOR_BASE}/Search/GetParcelTaxes?parcelid=${id}`)
+  ]);
+  const html    = await infoRes.text();
+  const taxData = await taxRes.json().catch(() => ({}));
+  const info    = parseInfo(html, id);
+  info.calcAcres  = arcAttrs.CALC_ACRES ?? arcAttrs.calcAcres ?? null;
+  info.deedAcres  = arcAttrs.DEED_ACRES ?? null;
+  info.acresDiff  = arcAttrs.ACRES_DIFF ?? null;
+  info.comment    = arcAttrs.COMMENT    ?? null;
+  info.needsRev   = arcAttrs.NEEDS_REV  ?? null;
+  info.busName    = arcAttrs.BUS_NAME   ?? null;
+  info.parishTax  = taxData.ParishTaxes ?? 0;
+  info.cityTax    = taxData.CityTaxes   ?? 0;
+  info.homestead  = taxData.Homestead   ?? 0;
+  // Fall back to ArcGIS owner data if assessor page is empty
+  if (!info.owner) info.owner       = arcAttrs.Owner_Name || arcAttrs.BUS_NAME || '';
+  if (!info.mailingAddr) info.mailingAddr = arcAttrs.Owner_Addr || '';
+  return info;
+}
+
+// ── Score a hydrated parcel (server-side mirror of client scoring) ──
+function scoreParcel(p) {
+  const signals = []; let score = 0;
+  const add = (label, type, pts) => { signals.push({ label, type }); score += pts; };
+
+  if (p._isAdj)
+    add('Adjudicated', 'hot', 35);
+
+  const name = (p.owner || '').toLowerCase();
+  const legal = (p.legal || '').toLowerCase();
+  if (/heir|estate|succession|probate|et al|et ux/.test(name) || /probate|succession|partition/.test(legal))
+    add('Heirs / Estate', 'hot', 20);
+
+  const mail = (p.mailingAddr || '').toLowerCase();
+  const laKw = ['lafayette','opelousas','eunice','baton rouge','new orleans','shreveport','lake charles',
+                 'ville platte','mamou','port barre','sunset','church point','lawtell','melville',
+                 'jennings','crowley','breaux bridge','st martinville','new iberia'];
+  const inLA = laKw.some(k => mail.includes(k)) || / la[\s\n,]/.test(mail);
+  if (mail && !inLA)
+    add('Out-of-State Owner', 'warm', 15);
+
+  if (p.homestead === 0 || p.homestead === '0')
+    add('No Homestead', 'warm', 8);
+
+  const assessed = parseFloat((p.assessedVal || '').toString().replace(/,/g, '')) || 0;
+  const tax      = parseFloat(p.parishTax) || 0;
+  if (assessed > 0 && tax / assessed > 0.05)
+    add('High Tax Burden', 'warm', 10);
+
+  if (p.needsRev === 'Y')
+    add('Flagged for Review', 'warm', 8);
+
+  const acres = parseFloat(p.calcAcres) || 0;
+  if (acres >= 50)      add('50+ Acres', 'good', 15);
+  else if (acres >= 20) add('20+ Acres', 'good', 8);
+
+  const diff = parseFloat(p.acresDiff) || 0;
+  if (diff <= -5) add('Acreage Discrepancy', 'warm', 5);
+
+  return { score: Math.min(score, 100), signals };
+}
+
+// ── GET /api/opportunities ──
+app.get('/api/opportunities', async (req, res) => {
+  try {
+    const seen    = new Set();
+    const results = [];
+
+    // 1. All adjudicated parcels from both layers
+    const [a1r, a2r] = await Promise.all([
+      fetch(`${ARC_ADJ1}?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1000&f=json`),
+      fetch(`${ARC_ADJ2}?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1000&f=json`)
+    ]);
+    const [adj1, adj2] = await Promise.all([a1r.json(), a2r.json()]);
+    const adjFeatures  = [
+      ...(adj1.features || []).map(f => ({ ...f.attributes, _isAdj: true })),
+      ...(adj2.features || []).map(f => ({ ...f.attributes, _isAdj: true }))
+    ];
+
+    for (const a of adjFeatures) {
+      const id = (a.PARCEL || a.ParcelNumb || '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      try {
+        const info    = await hydrateParcel(id, a);
+        info._isAdj   = true;
+        const { score, signals } = scoreParcel(info);
+        info._score   = score;
+        info._signals = signals;
+        results.push(info);
+      } catch(e) {
+        results.push({ parcel: id, owner: a.Owner_Name || a.BUS_NAME, _isAdj: true, _score: 35, _signals: [{ label: 'Adjudicated', type: 'hot' }] });
+      }
+    }
+
+    // 2. Full-parish: flagged, discrepancy, or large acreage with multiple signals
+    const arcRes  = await fetch(`${ARC_PARCELS}?${new URLSearchParams({
+      where:             "NEEDS_REV = 'Y' OR ACRES_DIFF <= -10 OR CALC_ACRES >= 50",
+      outFields:         'PARCEL,CALC_ACRES,DEED_ACRES,ACRES_DIFF,COMMENT,NEEDS_REV,BUS_NAME',
+      returnGeometry:    false,
+      resultRecordCount: 40,
+      orderByFields:     'CALC_ACRES DESC',
+      f:                 'json'
+    })}`);
+    const arcData = await arcRes.json();
+
+    for (const f of (arcData.features || [])) {
+      const id = (f.attributes.PARCEL || '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      try {
+        const info    = await hydrateParcel(id, f.attributes);
+        info._isAdj   = false;
+        const { score, signals } = scoreParcel(info);
+        if (score >= 20) {          // only include if meaningful signals
+          info._score   = score;
+          info._signals = signals;
+          results.push(info);
+        }
+      } catch(e) { /* skip */ }
+    }
+
+    results.sort((a, b) => b._score - a._score);
+    res.json(results);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, () => console.log(`St. Landry IQ running on port ${PORT}`));

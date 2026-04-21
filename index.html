@@ -216,6 +216,7 @@ hr{border:none;border-top:1px solid var(--border)}
         <button class="rtab active" onclick="switchRTab(event,'analysis')">AI Analysis</button>
         <button class="rtab" onclick="switchRTab(event,'letter')">Outreach Letter</button>
         <button class="rtab" onclick="switchRTab(event,'checklist')">Next Steps</button>
+        <button class="rtab" onclick="switchRTab(event,'verify')">Verify</button>
       </div>
       <div class="rpane active" id="pane_analysis"><div class="ai-out" id="analysisOutput">Select a property above then click Run AI Analysis.</div></div>
       <div class="rpane" id="pane_letter">
@@ -223,6 +224,7 @@ hr{border:none;border-top:1px solid var(--border)}
         <div class="copy-row"><button class="btn btn-ghost" onclick="copyText('letterOutput')">Copy Letter</button></div>
       </div>
       <div class="rpane" id="pane_checklist"><div class="ai-out" id="checklistOutput">Run AI Analysis first — action plan generates automatically.</div></div>
+      <div class="rpane" id="pane_verify"><div class="ai-out" id="verifyOutput">Run AI Analysis first — secondary data check generates automatically.</div></div>
     </div>
 
   </div>
@@ -265,6 +267,7 @@ hr{border:none;border-top:1px solid var(--border)}
         <button class="rtab active" onclick="switchLTab(event,'lanalysis')">AI Analysis</button>
         <button class="rtab" onclick="switchLTab(event,'lletter')">Outreach Letter</button>
         <button class="rtab" onclick="switchLTab(event,'lchecklist')">Next Steps</button>
+        <button class="rtab" onclick="switchLTab(event,'lverify')">Verify</button>
       </div>
       <div class="rpane active" id="pane_lanalysis"><div class="ai-out" id="lAnalysisOutput">Click Run AI Analysis to score this parcel as an investment.</div></div>
       <div class="rpane" id="pane_lletter">
@@ -272,6 +275,7 @@ hr{border:none;border-top:1px solid var(--border)}
         <div class="copy-row"><button class="btn btn-ghost" onclick="copyText('lLetterOutput')">Copy Letter</button></div>
       </div>
       <div class="rpane" id="pane_lchecklist"><div class="ai-out" id="lChecklistOutput">Run AI Analysis first — action plan generates automatically.</div></div>
+      <div class="rpane" id="pane_lverify"><div class="ai-out" id="lVerifyOutput">Run AI Analysis first — secondary data check generates automatically.</div></div>
     </div>
 
   </div>
@@ -422,7 +426,7 @@ function selectAdj(attrs, row) {
   document.querySelectorAll('#resultsBody tr').forEach(r => r.classList.remove('selected'));
   row.classList.add('selected');
   currentAdj = attrs;
-  resetOutputs('analysisOutput', 'letterOutput', 'checklistOutput');
+  resetOutputs('analysisOutput', 'letterOutput', 'checklistOutput', 'verifyOutput');
   buildDetailGrid('detailGrid', adjFields(attrs));
   const {score, flags} = adjScore(attrs);
   renderScore('scoreNum', 'scoreGrade', 'flagsRow', score, flags);
@@ -549,7 +553,7 @@ Return ONLY the JSON object, nothing else.`;
   setBtn('lookupBtn', 'lookupBtnText', false, 'Look Up');
   currentLookup = info;
 
-  resetOutputs('lAnalysisOutput', 'lLetterOutput', 'lChecklistOutput');
+  resetOutputs('lAnalysisOutput', 'lLetterOutput', 'lChecklistOutput', 'lVerifyOutput');
   buildDetailGrid('lookupGrid', lookupFields(info));
   const {score, flags} = lookupScore(info);
   renderScore('lScoreNum', 'lScoreGrade', 'lFlagsRow', score, flags);
@@ -640,6 +644,7 @@ async function analyzeProperty() {
     document.getElementById('analysisOutput').innerText  = text;
     genLetter(key, a.Owner_Name || a.BUS_NAME || 'Property Owner', a.Owner_City, ((a.Address_Nu || '') + ' ' + (a.Street_Nam || '')).trim(), a.CALC_ACRES, true, 'letterOutput');
     genChecklist(key, a.ParcelNumb || a.PARCEL, a.Owner_Name, a.Owner_City, a.CALC_ACRES, score, flags, 'checklistOutput');
+    genVerification(key, a.ParcelNumb || a.PARCEL, a.Owner_Name || a.BUS_NAME, a.Owner_Addr, a.Owner_City, a.CALC_ACRES, true, 'verifyOutput');
   } catch(e) { document.getElementById('analysisOutput').innerText = 'Error: ' + e.message; }
   setBtn('analyzeBtn', 'analyzeBtnText', false, 'Run AI Analysis');
 }
@@ -659,6 +664,7 @@ async function analyzeLookup() {
     document.getElementById('lAnalysisOutput').innerText = text;
     genLetter(key, a.owner, a.mailingAddr, a.physAddr, a.legal, a._isAdj, 'lLetterOutput');
     genChecklist(key, a.parcel, a.owner, a.mailingAddr, a.legal, score, flags, 'lChecklistOutput');
+    genVerification(key, a.parcel, a.owner, a.mailingAddr, null, null, a._isAdj, 'lVerifyOutput');
   } catch(e) { document.getElementById('lAnalysisOutput').innerText = 'Error: ' + e.message; }
   setBtn('lAnalyzeBtn', 'lAnalyzeBtnText', false, 'Run AI Analysis');
 }
@@ -737,6 +743,63 @@ Flags: ${flags.map(f => f.label).join(', ')}
     el.innerText   = text;
     el.style.color = '#C8CDD6';
   } catch(e) { el.innerText = 'Error: ' + e.message; }
+}
+
+async function genVerification(key, parcel, ownerName, ownerAddr, ownerCity, acres, isAdj, outputId) {
+  const el       = document.getElementById(outputId);
+  el.style.color = 'var(--muted)';
+  el.innerText   = 'Running secondary data check...';
+  const isBiz    = /llc|inc|corp|trust|church|school|assoc/i.test(ownerName || '');
+  const prompt   = `You are verifying a St. Landry Parish, Louisiana property record for a land investor. Use web search to cross-check the following parish data against independent public sources.
+
+PARISH DATA TO VERIFY:
+Parcel: ${parcel || 'Unknown'}
+Owner: ${ownerName || 'Unknown'}
+Owner Address: ${ownerAddr || 'Unknown'}${ownerCity ? ', ' + ownerCity : ''}
+Acres: ${acres || 'Unknown'}
+Adjudicated: ${isAdj ? 'YES' : 'NO'}
+Business/Entity owner: ${isBiz ? 'YES' : 'NO'}
+
+SEARCH TASKS:
+1. Search for this parcel number on the Louisiana Tax Commission site (latax.state.la.us) or St. Landry Parish assessor records — confirm owner name and assessed value
+2. Search for "${ownerName} St. Landry Parish Louisiana" to find any public records, obituaries, legal filings, or news
+3. If business-owned, search Louisiana Secretary of State (sos.la.gov) for entity status
+4. Search for any tax liens, sheriff sales, or legal notices tied to this parcel or owner
+
+FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+SECONDARY VERIFICATION — Parcel ${parcel}
+
+OWNER ON RECORD: ${ownerName}
+[CONFIRMED / DISCREPANCY / UNVERIFIED] — [what you found]
+
+ADJUDICATION STATUS:
+[CONFIRMED / DISCREPANCY / UNVERIFIED] — [what you found]
+
+ACREAGE / PROPERTY:
+[CONFIRMED / DISCREPANCY / UNVERIFIED] — [what you found]
+
+ADDITIONAL FINDINGS:
+[Any obituaries, legal filings, entity status, liens, or other public record hits. "None found" if clean.]
+
+VERDICT: [1-2 sentences — is this data reliable? Any red flags or green lights the investor should know?]`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        tools: [{"type": "web_search_20250305", "name": "web_search"}],
+        messages: [{role: 'user', content: prompt}]
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const textBlock = data.content?.find(b => b.type === 'text');
+    el.innerText   = textBlock?.text || 'No results returned.';
+    el.style.color = '#C8CDD6';
+  } catch(e) { el.innerText = 'Verify error: ' + e.message; el.style.color = ''; }
 }
 
 async function callClaude(key, prompt, maxTokens) {

@@ -35,7 +35,6 @@ function parseInfo(html, parcelId) {
     subdivision: field('Subdivision'),
     assessedVal: field('Assessed Value'),
     legal:       field('Legal'),
-    deeds:       field('Deeds'),
   };
 }
 
@@ -43,21 +42,24 @@ function parseInfo(html, parcelId) {
 app.get('/api/parcel/:id', async (req, res) => {
   const id = req.params.id.trim();
   try {
-    const [infoRes, taxRes] = await Promise.all([
+    const [infoRes, taxRes, deedRes] = await Promise.all([
       fetch(`${ASSESSOR_BASE}/Search/GetInfo?parcelNumber=${id}&inAISMode=false`),
-      fetch(`${ASSESSOR_BASE}/Search/GetParcelTaxes?parcelid=${id}`)
+      fetch(`${ASSESSOR_BASE}/Search/GetParcelTaxes?parcelid=${id}`),
+      fetch(`${ASSESSOR_BASE}/Search/GetDeeds?parcelNumber=${id}`)
     ]);
     if (!infoRes.ok) { res.status(404).json({ error: 'Parcel not found' }); return; }
 
-    const html    = await infoRes.text();
-    const taxData = await taxRes.json().catch(() => ({}));
-    const info    = parseInfo(html, id);
+    const html     = await infoRes.text();
+    const taxData  = await taxRes.json().catch(() => ({}));
+    const deedHtml = await deedRes.text();
+    const info     = parseInfo(html, id);
 
     if (!info.owner) { res.status(404).json({ error: 'No data found for this parcel' }); return; }
 
     info.parishTax  = taxData.ParishTaxes ?? 0;
     info.cityTax    = taxData.CityTaxes   ?? 0;
     info.homestead  = taxData.Homestead   ?? 0;
+    info.deeds      = parseDeeds(deedHtml);
 
     // Cross-check adjudicated status
     const adjUrl = `${ARC_ADJ1}?where=${encodeURIComponent(`PARCEL='${id}' OR ParcelNumb='${id}'`)}&returnCountOnly=true&f=json`;
@@ -148,15 +150,39 @@ app.get('/api/browse', async (req, res) => {
   }
 });
 
+// ── Parse deed history HTML ──
+function parseDeeds(html) {
+  const deeds = [];
+  const rowRe = /<tr>([\s\S]*?)<\/tr>/gi;
+  let match;
+  while ((match = rowRe.exec(html)) !== null) {
+    const cells = [...match[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m =>
+      m[1].replace(/<[^>]*>/g, '').trim()
+    );
+    if (cells.length >= 3 && cells[0].match(/^\d+/)) {
+      deeds.push({
+        deedNum:  cells[0],
+        date:     cells[1],
+        type:     cells[2].replace(/\s+/g, ' ').trim(),
+        price:    parseFloat(cells[3]) || 0
+      });
+    }
+  }
+  return deeds;
+}
+
 // ── Shared hydrator: fetch assessor data for a parcel ID ──
 async function hydrateParcel(id, arcAttrs = {}) {
-  const [infoRes, taxRes] = await Promise.all([
+  const [infoRes, taxRes, deedRes] = await Promise.all([
     fetch(`${ASSESSOR_BASE}/Search/GetInfo?parcelNumber=${id}&inAISMode=false`),
-    fetch(`${ASSESSOR_BASE}/Search/GetParcelTaxes?parcelid=${id}`)
+    fetch(`${ASSESSOR_BASE}/Search/GetParcelTaxes?parcelid=${id}`),
+    fetch(`${ASSESSOR_BASE}/Search/GetDeeds?parcelNumber=${id}`)
   ]);
-  const html    = await infoRes.text();
-  const taxData = await taxRes.json().catch(() => ({}));
-  const info    = parseInfo(html, id);
+  const html     = await infoRes.text();
+  const taxData  = await taxRes.json().catch(() => ({}));
+  const deedHtml = await deedRes.text();
+  const info     = parseInfo(html, id);
+
   info.calcAcres  = arcAttrs.CALC_ACRES ?? arcAttrs.calcAcres ?? null;
   info.deedAcres  = arcAttrs.DEED_ACRES ?? null;
   info.acresDiff  = arcAttrs.ACRES_DIFF ?? null;
@@ -166,9 +192,10 @@ async function hydrateParcel(id, arcAttrs = {}) {
   info.parishTax  = taxData.ParishTaxes ?? 0;
   info.cityTax    = taxData.CityTaxes   ?? 0;
   info.homestead  = taxData.Homestead   ?? 0;
-  // Fall back to ArcGIS owner data if assessor page is empty
-  if (!info.owner) info.owner       = arcAttrs.Owner_Name || arcAttrs.BUS_NAME || '';
-  if (!info.mailingAddr) info.mailingAddr = arcAttrs.Owner_Addr || '';
+  info.deeds      = parseDeeds(deedHtml);
+
+  if (!info.owner)       info.owner       = arcAttrs.Owner_Name || arcAttrs.BUS_NAME || '';
+  if (!info.mailingAddr) info.mailingAddr  = arcAttrs.Owner_Addr || '';
   return info;
 }
 
@@ -230,6 +257,21 @@ function scoreParcel(p) {
 
   if ((parseFloat(p.acresDiff) || 0) <= -5)
     add('Acreage Discrepancy', 'warm', 5);
+
+  // Deed history signals
+  const deeds = Array.isArray(p.deeds) ? p.deeds : [];
+  if (deeds.length > 0) {
+    const types = deeds.map(d => (d.type || '').toUpperCase());
+    const succCount = types.filter(t => t.includes('JUDGT OF POSS') || t.includes('SUCCESSION')).length;
+    if (succCount > 0)  add('Succession / Probate Deed', 'hot', 20);
+    if (succCount >= 2) add('Multi-Gen Succession',      'hot', 10);
+    if (types.some(t => t.includes('TAX SALE')))
+      add('Tax Sale History',   'hot',  15);
+    if (types.some(t => t.includes('REDEMPTION')))
+      add('Tax Redemption',     'warm',  8);
+    if (deeds.every(d => (d.price || 0) === 0))
+      add('Never Sold on Market', 'warm', 10);
+  }
 
   return { score: Math.min(score, 100), signals };
 }

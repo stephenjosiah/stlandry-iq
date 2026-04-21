@@ -172,10 +172,32 @@ async function hydrateParcel(id, arcAttrs = {}) {
   return info;
 }
 
+// Sweet-spot ranges for realistic investment targets
+const SWEET_MIN_ACRES    = 2;
+const SWEET_MAX_ACRES    = 150;
+const SWEET_MIN_ASSESSED = 3000;
+const SWEET_MAX_ASSESSED = 300000;
+
+function inSweetSpot(p) {
+  const acres    = parseFloat(p.calcAcres) || 0;
+  const assessed = parseFloat((p.assessedVal || '').toString().replace(/,/g, '')) || 0;
+  if (acres > 0 && (acres < SWEET_MIN_ACRES || acres > SWEET_MAX_ACRES)) return false;
+  if (assessed > 0 && (assessed < SWEET_MIN_ASSESSED || assessed > SWEET_MAX_ASSESSED)) return false;
+  return true;
+}
+
 // ── Score a hydrated parcel (server-side mirror of client scoring) ──
 function scoreParcel(p) {
   const signals = []; let score = 0;
   const add = (label, type, pts) => { signals.push({ label, type }); score += pts; };
+
+  // Hard disqualifiers — outside the investable range
+  const acres    = parseFloat(p.calcAcres) || 0;
+  const assessed = parseFloat((p.assessedVal || '').toString().replace(/,/g, '')) || 0;
+  if (acres > 0 && acres < SWEET_MIN_ACRES)    return { score: 0, signals: [{ label: 'Too Small', type: 'blue' }] };
+  if (acres > SWEET_MAX_ACRES)                 return { score: 0, signals: [{ label: 'Too Large', type: 'blue' }] };
+  if (assessed > 0 && assessed < SWEET_MIN_ASSESSED) return { score: 0, signals: [{ label: 'Low Value', type: 'blue' }] };
+  if (assessed > SWEET_MAX_ASSESSED)           return { score: 0, signals: [{ label: 'Out of Range', type: 'blue' }] };
 
   if (p._isAdj)
     add('Adjudicated', 'hot', 35);
@@ -196,20 +218,18 @@ function scoreParcel(p) {
   if (p.homestead === 0 || p.homestead === '0')
     add('No Homestead', 'warm', 8);
 
-  const assessed = parseFloat((p.assessedVal || '').toString().replace(/,/g, '')) || 0;
-  const tax      = parseFloat(p.parishTax) || 0;
-  if (assessed > 0 && tax / assessed > 0.05)
+  if (assessed > 0 && parseFloat(p.parishTax) / assessed > 0.05)
     add('High Tax Burden', 'warm', 10);
 
   if (p.needsRev === 'Y')
     add('Flagged for Review', 'warm', 8);
 
-  const acres = parseFloat(p.calcAcres) || 0;
-  if (acres >= 50)      add('50+ Acres', 'good', 15);
-  else if (acres >= 20) add('20+ Acres', 'good', 8);
+  if (acres >= 50)       add('50+ Acres', 'good', 15);
+  else if (acres >= 20)  add('20+ Acres', 'good', 8);
+  else if (acres >= 2)   add('2–20 Acres', 'good', 4);
 
-  const diff = parseFloat(p.acresDiff) || 0;
-  if (diff <= -5) add('Acreage Discrepancy', 'warm', 5);
+  if ((parseFloat(p.acresDiff) || 0) <= -5)
+    add('Acreage Discrepancy', 'warm', 5);
 
   return { score: Math.min(score, 100), signals };
 }
@@ -220,10 +240,11 @@ app.get('/api/opportunities', async (req, res) => {
     const seen    = new Set();
     const results = [];
 
-    // 1. All adjudicated parcels from both layers
+    // 1. Adjudicated parcels — pre-filter to sweet-spot acreage at the query level
+    const adjWhere = `CALC_ACRES >= ${SWEET_MIN_ACRES} AND CALC_ACRES <= ${SWEET_MAX_ACRES}`;
     const [a1r, a2r] = await Promise.all([
-      fetch(`${ARC_ADJ1}?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1000&f=json`),
-      fetch(`${ARC_ADJ2}?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1000&f=json`)
+      fetch(`${ARC_ADJ1}?where=${encodeURIComponent(adjWhere)}&outFields=*&returnGeometry=false&resultRecordCount=1000&f=json`),
+      fetch(`${ARC_ADJ2}?where=${encodeURIComponent(adjWhere)}&outFields=*&returnGeometry=false&resultRecordCount=1000&f=json`)
     ]);
     const [adj1, adj2] = await Promise.all([a1r.json(), a2r.json()]);
     const adjFeatures  = [
@@ -247,13 +268,13 @@ app.get('/api/opportunities', async (req, res) => {
       }
     }
 
-    // 2. Full-parish: flagged, discrepancy, or large acreage with multiple signals
-    const arcRes  = await fetch(`${ARC_PARCELS}?${new URLSearchParams({
-      where:             "NEEDS_REV = 'Y' OR ACRES_DIFF <= -10 OR CALC_ACRES >= 50",
+    // 2. Full-parish: sweet-spot acreage with flags/discrepancy
+    const arcWhere = `CALC_ACRES >= ${SWEET_MIN_ACRES} AND CALC_ACRES <= ${SWEET_MAX_ACRES} AND (NEEDS_REV = 'Y' OR ACRES_DIFF <= -5)`;
+    const arcRes   = await fetch(`${ARC_PARCELS}?${new URLSearchParams({
+      where:             arcWhere,
       outFields:         'PARCEL,CALC_ACRES,DEED_ACRES,ACRES_DIFF,COMMENT,NEEDS_REV,BUS_NAME',
       returnGeometry:    false,
       resultRecordCount: 40,
-      orderByFields:     'CALC_ACRES DESC',
       f:                 'json'
     })}`);
     const arcData = await arcRes.json();
@@ -263,10 +284,10 @@ app.get('/api/opportunities', async (req, res) => {
       if (!id || seen.has(id)) continue;
       seen.add(id);
       try {
-        const info    = await hydrateParcel(id, f.attributes);
-        info._isAdj   = false;
+        const info             = await hydrateParcel(id, f.attributes);
+        info._isAdj            = false;
         const { score, signals } = scoreParcel(info);
-        if (score >= 20) {          // only include if meaningful signals
+        if (score >= 20) {
           info._score   = score;
           info._signals = signals;
           results.push(info);

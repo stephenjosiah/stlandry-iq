@@ -176,9 +176,9 @@ hr{border:none;border-top:1px solid var(--border)}
         </div>
       </div>
       <div class="qbtns">
-        <button class="btn btn-ghost" onclick="loadFilter('1=1',75)">Browse All</button>
-        <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 20',75)">20+ Acres</button>
-        <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 50',75)">50+ Acres</button>
+        <button class="btn btn-ghost" onclick="loadFilter('1=1')">Top Deals</button>
+        <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 20')">20+ Acres</button>
+        <button class="btn btn-ghost" onclick="loadFilter('CALC_ACRES >= 50')">50+ Acres</button>
         <button class="btn btn-ghost" onclick="loadHeirs()">Heirs / Estates</button>
         <button class="btn btn-ghost" onclick="loadOutOfState()">Out-of-State</button>
       </div>
@@ -188,7 +188,7 @@ hr{border:none;border-top:1px solid var(--border)}
       <div class="slabel">Results <span id="resultCount" style="color:var(--muted);font-size:0.85em"></span></div>
       <div class="ovfx">
         <table class="tbl" id="resultsTable">
-          <thead><tr><th>Parcel #</th><th>Owner</th><th>Property Address</th><th>Acres</th><th>Owner City</th></tr></thead>
+          <thead><tr><th>Score</th><th>Parcel #</th><th>Owner</th><th>Property Address</th><th>Acres</th><th>Owner City</th></tr></thead>
           <tbody id="resultsBody"></tbody>
         </table>
       </div>
@@ -366,9 +366,9 @@ async function searchParcels() {
   setBtn('searchBtn', 'searchBtnText', false, 'Search');
 }
 
-async function loadFilter(where, max = 75) {
+async function loadFilter(where) {
   setBtn('searchBtn', 'searchBtnText', true);
-  await fetchAndDisplay(where, max);
+  await fetchAndDisplay(where);
   setBtn('searchBtn', 'searchBtnText', false, 'Search');
 }
 
@@ -380,14 +380,18 @@ async function loadOutOfState() {
   await loadFilter("Owner_City NOT LIKE '%Eunice%' AND Owner_City NOT LIKE '%Opelousas%' AND Owner_City NOT LIKE '%Ville Platte%' AND Owner_City NOT LIKE '%Mamou%' AND Owner_City NOT LIKE '%Port Barre%' AND Owner_City NOT LIKE '%Sunset%' AND Owner_City NOT LIKE '%Church Point%' AND Owner_City IS NOT NULL AND Owner_City <> ''");
 }
 
-async function fetchAndDisplay(where, max = 100) {
+async function fetchAndDisplay(where, max = 500) {
   try {
-    const p   = new URLSearchParams({where, outFields: ADJ_FIELDS, returnGeometry: false, resultRecordCount: max, orderByFields: 'CALC_ACRES DESC', f: 'json'});
+    const p   = new URLSearchParams({where, outFields: ADJ_FIELDS, returnGeometry: false, resultRecordCount: max, f: 'json'});
     const res = await fetch(`${ADJ_URL}?${p}`);
     const d   = await res.json();
     if (d.error) { alert('API Error: ' + d.error.message); return; }
-    displayResults(d.features || []);
-    document.getElementById('statResults').innerText = (d.features || []).length;
+    const features = d.features || [];
+    // Score every record client-side, sort best deals first
+    const scored = features.map(f => ({...f, _score: adjScore(f.attributes).score}));
+    scored.sort((a, b) => b._score - a._score);
+    displayResults(scored);
+    document.getElementById('statResults').innerText = scored.length;
   } catch(e) { alert('Network error: ' + e.message); }
 }
 
@@ -416,7 +420,9 @@ function displayResults(features) {
     const parcel = a.ParcelNumb || a.PARCEL || '—';
     const owner  = a.Owner_Name || a.BUS_NAME || 'Unknown';
     const street = a.Street_Nam ? ((a.Address_Nu || '') + ' ' + a.Street_Nam).trim() : '—';
-    tr.innerHTML = `<td><span class="pnum">${parcel}</span></td><td>${owner}</td><td>${street}</td><td><span class="acbadge">${acres} ac</span></td><td>${a.Owner_City || '—'}</td>`;
+    const sc     = f._score ?? adjScore(a).score;
+    const scColor = sc >= 70 ? 'var(--red)' : sc >= 50 ? 'var(--amber)' : 'var(--blue)';
+    tr.innerHTML = `<td><span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:${scColor}">${sc}</span></td><td><span class="pnum">${parcel}</span></td><td>${owner}</td><td>${street}</td><td><span class="acbadge">${acres} ac</span></td><td>${a.Owner_City || '—'}</td>`;
     tr.onclick   = () => selectAdj(a, tr);
     tbody.appendChild(tr);
   });

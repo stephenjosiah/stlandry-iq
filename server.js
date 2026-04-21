@@ -205,6 +205,10 @@ const SWEET_MAX_ACRES    = 150;
 const SWEET_MIN_ASSESSED = 3000;
 const SWEET_MAX_ASSESSED = 300000;
 
+// Large-tract tier: corporate/institutional sellers, 150–600 acres
+const LARGE_MAX_ACRES = 600;
+const CORPORATE_RE = /\b(inc|llc|corp|co\b|company|realty|trust|ltd|lp|partners|holdings|properties|land|timber|investments?|ventures?|farms?)\b/i;
+
 function inSweetSpot(p) {
   const acres    = parseFloat(p.calcAcres) || 0;
   const assessed = parseFloat((p.assessedVal || '').toString().replace(/,/g, '')) || 0;
@@ -222,9 +226,9 @@ function scoreParcel(p) {
   const acres    = parseFloat(p.calcAcres) || 0;
   const assessed = parseFloat((p.assessedVal || '').toString().replace(/,/g, '')) || 0;
   if (acres > 0 && acres < SWEET_MIN_ACRES)    return { score: 0, signals: [{ label: 'Too Small', type: 'blue' }] };
-  if (acres > SWEET_MAX_ACRES)                 return { score: 0, signals: [{ label: 'Too Large', type: 'blue' }] };
+  if (acres > LARGE_MAX_ACRES)                 return { score: 0, signals: [{ label: 'Too Large', type: 'blue' }] };
   if (assessed > 0 && assessed < SWEET_MIN_ASSESSED) return { score: 0, signals: [{ label: 'Low Value', type: 'blue' }] };
-  if (assessed > SWEET_MAX_ASSESSED)           return { score: 0, signals: [{ label: 'Out of Range', type: 'blue' }] };
+  if (assessed > SWEET_MAX_ASSESSED && acres <= SWEET_MAX_ACRES) return { score: 0, signals: [{ label: 'Out of Range', type: 'blue' }] };
 
   if (p._isAdj)
     add('Adjudicated', 'hot', 35);
@@ -251,9 +255,13 @@ function scoreParcel(p) {
   if (p.needsRev === 'Y')
     add('Flagged for Review', 'warm', 8);
 
-  if (acres >= 50)       add('50+ Acres', 'good', 15);
-  else if (acres >= 20)  add('20+ Acres', 'good', 8);
-  else if (acres >= 2)   add('2–20 Acres', 'good', 4);
+  if (acres > SWEET_MAX_ACRES) add('Large Tract',  'good', 12);
+  else if (acres >= 50)        add('50+ Acres',    'good', 15);
+  else if (acres >= 20)        add('20+ Acres',    'good', 8);
+  else if (acres >= 2)         add('2–20 Acres',   'good', 4);
+
+  if (CORPORATE_RE.test(p.owner || ''))
+    add('Corporate Owner', 'warm', 15);
 
   if ((parseFloat(p.acresDiff) || 0) <= -5)
     add('Acreage Discrepancy', 'warm', 5);
@@ -310,7 +318,33 @@ app.get('/api/opportunities', async (req, res) => {
       }
     }
 
-    // 2. Full-parish: sweet-spot acreage with flags/discrepancy
+    // 2. Large tracts (150–600 ac) — surface corporate/institutional sellers
+    const largeRes  = await fetch(`${ARC_PARCELS}?${new URLSearchParams({
+      where:             `CALC_ACRES > ${SWEET_MAX_ACRES} AND CALC_ACRES <= ${LARGE_MAX_ACRES}`,
+      outFields:         'PARCEL,CALC_ACRES,DEED_ACRES,ACRES_DIFF,COMMENT,NEEDS_REV,BUS_NAME',
+      returnGeometry:    false,
+      resultRecordCount: 20,
+      f:                 'json'
+    })}`);
+    const largeData = await largeRes.json();
+
+    for (const f of (largeData.features || [])) {
+      const id = (f.attributes.PARCEL || '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      try {
+        const info = await hydrateParcel(id, f.attributes);
+        info._isAdj = false;
+        const { score, signals } = scoreParcel(info);
+        if (score >= 25) {
+          info._score   = score;
+          info._signals = signals;
+          results.push(info);
+        }
+      } catch(e) { /* skip */ }
+    }
+
+    // 3. Full-parish: sweet-spot acreage with flags/discrepancy
     const arcWhere = `CALC_ACRES >= ${SWEET_MIN_ACRES} AND CALC_ACRES <= ${SWEET_MAX_ACRES} AND (NEEDS_REV = 'Y' OR ACRES_DIFF <= -5)`;
     const arcRes   = await fetch(`${ARC_PARCELS}?${new URLSearchParams({
       where:             arcWhere,
